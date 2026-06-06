@@ -1273,3 +1273,138 @@ input[type="range"]::-moz-range-thumb {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(4px); }
 }
+
+/* ============================================================
+   TIMER — ring, states, selector
+   ============================================================ */
+
+/* Progress row: bar + timer side by side */
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.progress-row .progress-wrap {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Ring wrapper */
+.timer-ring-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--indigo);
+  transition: color 0.4s ease;
+}
+
+/* Warning: gold */
+.timer-ring-wrap.timer-warning { color: var(--gold); }
+
+/* Danger: red + pulse */
+.timer-ring-wrap.timer-danger  {
+  color: var(--danger);
+  animation: timerPulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes timerPulse {
+  from { filter: drop-shadow(0 0 4px rgba(248,113,113,0.3)); }
+  to   { filter: drop-shadow(0 0 14px rgba(248,113,113,0.75)); }
+}
+
+.timer-ring-svg { display: block; }
+
+.timer-num {
+  position: absolute;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: inherit;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* ---- Timer selector on difficulty screen ---- */
+.timer-selector {
+  margin-top: 1.25rem;
+  padding-top: 1.125rem;
+  border-top: 1px solid var(--bd);
+}
+
+.timer-sel-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--tx-2);
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+.timer-sel-btns {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.timer-sel-btn {
+  flex: 1;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--bd);
+  background: var(--bg-card);
+  color: var(--tx-2);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
+  line-height: 1.4;
+}
+
+.timer-sel-btn:hover {
+  border-color: var(--bd-2);
+  background: var(--bg-card-h);
+  color: var(--tx);
+}
+
+.timer-sel-btn.active {
+  border-color: rgba(84,105,248,0.5);
+  background: rgba(84,105,248,0.1);
+  color: var(--indigo-2);
+  box-shadow: 0 0 16px rgba(84,105,248,0.2);
+}
+
+/* ---- Time's-up explanation box ---- */
+.timeout-box {
+  border-color: rgba(245,158,11,0.3) !important;
+  background: rgba(245,158,11,0.06) !important;
+}
+
+.timeout-label {
+  color: var(--gold) !important;
+  font-size: 0.875rem !important;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+.timeout-answer {
+  font-size: 0.9375rem;
+  color: var(--tx);
+  line-height: 1.55;
+}
+
+.timeout-answer strong {
+  color: var(--success);
+  font-weight: 700;
+}
+
+/* Review — timeout status badge */
+.r-status.timeout {
+  background: var(--gold);
+  box-shadow: 0 0 18px rgba(245,158,11,0.35);
+  font-size: 0.625rem;
+}
