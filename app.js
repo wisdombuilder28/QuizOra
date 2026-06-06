@@ -699,6 +699,8 @@ function buildResultsScreen() {
   const row = el("div", { className: "btn-row" });
   row.appendChild(el("button", { className: "btn btn-cta",
     onclick: () => { state.phase = "review"; render(); }}, "Review Answers"));
+  row.appendChild(el("button", { className: "btn btn-ghost share-score-btn",
+    onclick: showShareModal }, "📤 Share Score"));
   row.appendChild(el("button", { className: "btn btn-ghost",
     onclick: () => startQuiz(state.subject, state.difficulty, state.count) }, "Play Again"));
   row.appendChild(el("button", { className: "btn btn-ghost",
@@ -803,3 +805,237 @@ function startQuiz(subject, difficulty, count) {
    ============================================================ */
 initTheme();
 render();
+
+/* ============================================================
+   SHARE SCORE CARD
+   ============================================================ */
+async function showShareModal() {
+  await document.fonts.ready;
+
+  const pct     = state.questions.length ? Math.round((state.score / state.questions.length) * 100) : 0;
+  const subMeta = SUBJECTS.find(s => s.id === state.subject);
+
+  const canvas = document.createElement("canvas");
+  drawShareCard(canvas, { pct, subMeta });
+
+  const overlay = el("div", { className: "share-overlay", id: "shareOverlay" });
+  const modal   = el("div", { className: "share-modal" });
+
+  modal.appendChild(el("button", {
+    className: "share-close",
+    onclick: () => overlay.remove(),
+  }, "✕"));
+
+  modal.appendChild(el("div", { className: "share-modal-title" }, "Your Score Card"));
+
+  const canvasWrap = el("div", { className: "share-canvas-wrap" });
+  canvasWrap.appendChild(canvas);
+  modal.appendChild(canvasWrap);
+
+  modal.appendChild(el("p", { className: "share-hint" },
+    "Tap 'Share' to send it, or 'Save' to keep it 📲"));
+
+  const actions   = el("div", { className: "share-actions" });
+  const shareText = `I scored ${pct}% on QuizOra ${subMeta?.label} (${state.difficulty})! ${pct >= 80 ? "🎯" : "📚"} Think you can beat me?`;
+
+  // Share button — Web Share API
+  const shareBtn = el("button", { className: "btn btn-cta", onclick: () => {
+    canvas.toBlob(async blob => {
+      const file = new File([blob], "quizora-score.png", { type: "image/png" });
+      try {
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: "QuizOra Score", text: shareText });
+        } else if (navigator.share) {
+          await navigator.share({ title: "QuizOra Score", text: shareText });
+        } else {
+          triggerDownload(canvas);
+        }
+      } catch (e) { /* user cancelled */ }
+    }, "image/png");
+  }}, "📤 Share");
+  actions.appendChild(shareBtn);
+
+  // Save / download button
+  actions.appendChild(el("button", { className: "btn btn-ghost", onclick: () => triggerDownload(canvas) }, "💾 Save Image"));
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  APP.appendChild(overlay);
+
+  requestAnimationFrame(() => overlay.classList.add("visible"));
+}
+
+function triggerDownload(canvas) {
+  const a = document.createElement("a");
+  a.download = "quizora-score.png";
+  a.href = canvas.toDataURL("image/png");
+  a.click();
+}
+
+function drawShareCard(canvas, { pct, subMeta }) {
+  const W = 1080, H = 1080;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  const cx  = W / 2;
+
+  // ── Background ──
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#07091a");
+  bg.addColorStop(1, "#0c1130");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Dot grid ──
+  ctx.fillStyle = "rgba(255,255,255,0.028)";
+  for (let x = 0; x <= W; x += 54) {
+    for (let y = 0; y <= H; y += 54) {
+      ctx.beginPath();
+      ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ── Glow blobs ──
+  const g1 = ctx.createRadialGradient(W*0.25, H*0.22, 0, W*0.25, H*0.22, 400);
+  g1.addColorStop(0, "rgba(84,105,248,0.22)"); g1.addColorStop(1, "transparent");
+  ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
+
+  const g2 = ctx.createRadialGradient(W*0.78, H*0.78, 0, W*0.78, H*0.78, 340);
+  g2.addColorStop(0, "rgba(139,92,246,0.18)"); g2.addColorStop(1, "transparent");
+  ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+
+  // ── Logo (top-left) ──
+  const lx = 72, ly = 68;
+  canvasRoundRect(ctx, lx, ly, 66, 66, 18);
+  const logoGrad = ctx.createLinearGradient(lx, ly, lx+66, ly+66);
+  logoGrad.addColorStop(0, "#5469f8"); logoGrad.addColorStop(1, "#8b5cf6");
+  ctx.fillStyle = logoGrad;
+  ctx.shadowColor = "rgba(84,105,248,0.55)"; ctx.shadowBlur = 22;
+  ctx.fill(); ctx.shadowBlur = 0;
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "800 40px Syne, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("Q", lx + 33, ly + 34);
+
+  ctx.fillStyle = "#e8ecff";
+  ctx.font = "700 40px Syne, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("QuizOra", lx + 84, ly + 34);
+
+  // ── Subject + difficulty (top-right) ──
+  if (subMeta) {
+    ctx.fillStyle = "rgba(136,146,184,0.85)";
+    ctx.font = "500 30px Onest, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(subMeta.icon + "  " + subMeta.label + "   ·   " + state.difficulty, W - 72, ly + 34);
+  }
+
+  // ── Top divider ──
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(72, 168); ctx.lineTo(W-72, 168); ctx.stroke();
+
+  // ── Score ring ──
+  const rX = cx, rY = 470, rR = 192, rW = 28;
+
+  // Track
+  ctx.beginPath(); ctx.arc(rX, rY, rR, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = rW; ctx.lineCap = "butt"; ctx.stroke();
+
+  // Fill
+  if (pct > 0) {
+    const fillGrad = ctx.createLinearGradient(rX - rR, rY, rX + rR, rY);
+    fillGrad.addColorStop(0, "#5469f8"); fillGrad.addColorStop(1, "#22d3ee");
+    ctx.shadowColor = "rgba(84,105,248,0.45)"; ctx.shadowBlur = 32;
+    ctx.beginPath();
+    ctx.arc(rX, rY, rR, -Math.PI/2, -Math.PI/2 + (2 * Math.PI * pct / 100));
+    ctx.strokeStyle = fillGrad; ctx.lineWidth = rW; ctx.lineCap = "round";
+    ctx.stroke(); ctx.shadowBlur = 0;
+  }
+
+  // Percentage (gradient text)
+  const pctGrad = ctx.createLinearGradient(cx-130, 0, cx+130, 0);
+  pctGrad.addColorStop(0, "#7c8ffa");
+  pctGrad.addColorStop(0.5, "#22d3ee");
+  pctGrad.addColorStop(1, "#8b5cf6");
+  ctx.fillStyle = pctGrad;
+  ctx.font = "800 152px Syne, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(pct + "%", rX, rY - 12);
+
+  // Fraction
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
+  ctx.font = "500 36px Onest, sans-serif";
+  ctx.fillText(state.score + " of " + state.questions.length + " correct", rX, rY + 82);
+
+  // Result label
+  const labels = [
+    { min:100, text:"Perfect Score! 🏆" },
+    { min:80,  text:"Excellent! 🎯" },
+    { min:60,  text:"Good Work 📚" },
+    { min:0,   text:"Keep Going 🔬" },
+  ];
+  const label = labels.find(l => pct >= l.min).text;
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.font = "600 34px Onest, sans-serif";
+  ctx.fillText(label, cx, rY + 140);
+
+  // ── Mid divider ──
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(72, 710); ctx.lineTo(W-72, 710); ctx.stroke();
+
+  // ── Stats row ──
+  const stats = [
+    { label: "CORRECT",    val: state.score + " / " + state.questions.length, color: "#10b981" },
+    { label: "DIFFICULTY", val: state.difficulty.charAt(0).toUpperCase() + state.difficulty.slice(1), color: "#8892b8" },
+  ];
+  if (state.bestStreak >= 1) stats.push({ label: "BEST STREAK", val: "🔥 " + state.bestStreak, color: "#f59e0b" });
+  if (state.timerDuration > 0) stats.push({ label: "TIMER", val: state.timerDuration + "s", color: "#5469f8" });
+
+  const colW = (W - 144) / stats.length;
+  stats.forEach((s, i) => {
+    const sx = 72 + colW * i + colW / 2;
+    ctx.fillStyle = s.color;
+    ctx.font = "800 52px Syne, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillText(s.val, sx, 802);
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.font = "600 24px Onest, sans-serif";
+    ctx.fillText(s.label, sx, 848);
+  });
+
+  // ── Bottom divider ──
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(72, 888); ctx.lineTo(W-72, 888); ctx.stroke();
+
+  // ── Footer ──
+  const footMsg = pct >= 80
+    ? "Challenge accepted? Try to beat this on QuizOra."
+    : "Every expert was once a beginner. Keep going.";
+  ctx.fillStyle = "rgba(255,255,255,0.22)";
+  ctx.font = "400 28px Onest, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(footMsg, cx, 950);
+
+  ctx.fillStyle = "rgba(255,255,255,0.12)";
+  ctx.font = "700 26px Syne, sans-serif";
+  ctx.fillText("quizora", cx, 1006);
+}
+
+function canvasRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
