@@ -24,14 +24,96 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
+  <!-- ── Android / Chrome install banner ── -->
+  <div id="installBanner">
+    <div class="ib-icon">Q</div>
+    <div class="ib-text">
+      <strong>Install QuizOra</strong>
+      <span>Play offline, add to home screen</span>
+    </div>
+    <button class="ib-btn" id="installBtn">Install</button>
+    <button class="ib-close" id="installClose" aria-label="Dismiss">✕</button>
+  </div>
+
+  <!-- ── iOS "Add to Home Screen" nudge ── -->
+  <div id="iosBanner">
+    <div class="ios-inner">
+      <span class="ios-icon">Q</span>
+      <div class="ios-text">
+        <strong>Install QuizOra</strong>
+        <span>Tap <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> then <strong>Add to Home Screen</strong></span>
+      </div>
+      <button class="ib-close" id="iosClose" aria-label="Dismiss">✕</button>
+    </div>
+    <div class="ios-arrow">▼</div>
+  </div>
+
   <div id="app"></div>
+
   <script src="questions.js"></script>
   <script src="app.js"></script>
+
   <script>
+    // ── PWA install logic ──
+    const isInstalled =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+
+    if (!isInstalled) {
+      const ua    = navigator.userAgent.toLowerCase();
+      const isIOS = /iphone|ipad|ipod/.test(ua) && !window.MSStream;
+
+      // iOS: no beforeinstallprompt — show manual nudge after 4s
+      if (isIOS) {
+        const dismissed = sessionStorage.getItem('ios-banner-dismissed');
+        if (!dismissed) {
+          setTimeout(() => {
+            document.getElementById('iosBanner').classList.add('visible');
+          }, 4000);
+        }
+        document.getElementById('iosClose').addEventListener('click', () => {
+          document.getElementById('iosBanner').classList.remove('visible');
+          sessionStorage.setItem('ios-banner-dismissed', '1');
+        });
+      }
+
+      // Android / Chrome: capture the prompt before it auto-dismisses
+      let deferredPrompt = null;
+
+      window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();               // stop mini-infobar
+        deferredPrompt = e;
+        const dismissed = sessionStorage.getItem('install-banner-dismissed');
+        if (!dismissed) {
+          document.getElementById('installBanner').classList.add('visible');
+        }
+      });
+
+      document.getElementById('installBtn').addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        document.getElementById('installBanner').classList.remove('visible');
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+      });
+
+      document.getElementById('installClose').addEventListener('click', () => {
+        document.getElementById('installBanner').classList.remove('visible');
+        sessionStorage.setItem('install-banner-dismissed', '1');
+      });
+
+      window.addEventListener('appinstalled', () => {
+        document.getElementById('installBanner').classList.remove('visible');
+        deferredPrompt = null;
+      });
+    }
+
+    // ── Service Worker ──
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
-          .catch((err) => console.warn('SW registration failed:', err));
+          .catch(err => console.warn('SW registration failed:', err));
       });
     }
   </script>
