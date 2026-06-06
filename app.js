@@ -9,29 +9,6 @@ const state = {
   theme: "dark",
 };
 
-// PWA Install
-let deferredInstallPrompt = null;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault(); // stop the mini-bar from auto-showing
-  deferredInstallPrompt = e; // save it for later
-  render(); // re-render so the install button appears
-});
-
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  render();
-});
-
-function installApp() {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  deferredInstallPrompt.userChoice.then(() => {
-    deferredInstallPrompt = null;
-    render();
-  });
-}
-
 /* ============================================================
    THEME
    ============================================================ */
